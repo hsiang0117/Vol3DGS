@@ -1,3 +1,5 @@
+
+
 # Volumetrically Consistent 3D Gaussian Rasterization
  **<span style="color:red">CVPR 2025 Highlight</span>**
 
@@ -47,6 +49,8 @@ Example training command for lego dataset -
 ```
 python3 train_volr.py -s <lego_datapath> -m output/vol3dgs_lego --render_backend slang_volr --eval --densify_from_iter 50000 --disable_opacity_reset
 ```
+This example disables densification because `--densify_from_iter 50000` is greater than the default `--iterations 30000`.
+
 Set `--render_backend` to `slang` for 3DGS slang rasterizer, `slang_volr` uses our rasterizer.
 
 See `scripts/all_datasets.sh` for example commands (with hyperparameters and flags) to reproduce results on other datasets. 
