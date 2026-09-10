@@ -1,20 +1,44 @@
-# Vol3DGS — Python dependencies (Python 3.12, CUDA 12.8).
-# Install:  pip install -r requirements.txt
+# Vol3DGS — Python dependencies (Python 3.12, CUDA 12.8, Windows/Linux).
 #
 # ADAPTED from the upstream pin (torch==2.0.1 / torchvision==0.15.2 / numpy<2):
-# torch 2.0.1 ships no sm_120 kernels and cannot run on an RTX 5060 (Blackwell);
-# torch >= 2.7 with the CUDA 12.8 wheels is required. numpy is kept <2 because
-# the codebase relies on NumPy 1.x APIs (as pinned upstream).
-# Dropped here (view-synthesis path only, all optional/guarded imports):
-# wandb (only for --use_wandb), pyyaml, mkl, Cython, open3d, pydicom, tifffile,
-# pyvista, torchaudio (absolute/tomography dependencies of the upstream env).
+#   * torch 2.0.1 ships no sm_120 kernels and cannot run on an RTX 5060
+#     (Blackwell) — torch >= 2.7 with CUDA 12.8 wheels is required.
+#   * slangtorch 1.3.7 (upstream pin) is INCOMPATIBLE with torch 2.11:
+#     torch.utils.cpp_extension._write_ninja_file_and_build_library gained
+#     required args (extra_sycl_cflags / with_sycl) that 1.3.7's vendored
+#     compile path does not pass -> TypeError. Pin slangtorch>=1.3.22.
+#   * numpy kept <2 (1.26.4) as the codebase relies on NumPy 1.x APIs.
+# Dropped (view-synthesis path only, all optional/guarded imports):
+#   wandb (only with --use_wandb), pyyaml, mkl, Cython, open3d, pydicom,
+#   tifffile, pyvista, torchaudio (tomography/absolute deps of upstream).
 #
 # ⚠️ Use a SEPARATE virtual environment — do NOT install into the Cloud-GS venv
 # or the official-3DGS venv: all three ship a package named
 # `diff_gaussian_rasterization` with mutually incompatible APIs.
 #
-# The Vol3DGS rasterizer (submodules/slang-gaussian-rasterization) is compiled
-# just-in-time by slangtorch — it needs no separate build step.
+# ── Install (3 steps) ─────────────────────────────────────────────────────────
+#  1) pip install -r requirements.txt
+#  2) Build the three local CUDA extensions — they import torch in setup.py and
+#     cannot be built inside pip's isolated build env, so build isolation must be
+#     disabled AND the MSVC environment must be active (Windows):
+#         pip install --no-build-isolation \
+#             ./submodules/diff-gaussian-rasterization \
+#             ./submodules/simple-knn \
+#             ./submodules/fused-ssim
+#     On Windows, run this from a "x64 Native Tools Command Prompt for VS" (or a
+#     shell where vcvars64.bat has been called); DISTUTILS_USE_SDK=1 must be set
+#     so setuptools uses the ambient compiler instead of re-discovering VS.
+#  3) Install the Slang rasterizer (pure Python; the Slang shaders are JIT
+#     compiled by slangtorch on first use):
+#         pip install -e ./submodules/slang-gaussian-rasterization
+#
+#  Runtime note (Windows): the Slang JIT compile also needs an active MSVC
+#  environment on PATH, and slangtorch locates vswhere.exe via the
+#  `ProgramFiles(x86)` environment variable (set automatically by cmd/PowerShell,
+#  but NOT by Git-Bash — pass it explicitly there if needed).
+#
+#  China networks: PyPI's file host is often throttled; add a mirror, e.g.
+#  `-i https://mirrors.aliyun.com/pypi/simple/`.
 
 --extra-index-url https://download.pytorch.org/whl/cu128
 torch==2.11.0+cu128
@@ -25,14 +49,9 @@ pillow==12.3.0
 opencv-python==4.13.0.92
 plyfile==1.1.3
 tqdm==4.67.3
-matplotlib==3.10.9
+matplotlib             # hard-imported by train_volr.py / gaussian_model_volr.py
 tensorboard
-slangtorch==1.3.7      # JIT slang -> CUDA, used by the Vol3DGS rasterizer
+slangtorch==1.3.22     # torch-2.11-compatible (1.3.7 raises TypeError in JIT)
 
-scipy==1.13.1          # required by lpips; NumPy-1.x-compatible line
+scipy==1.17.1          # required by lpips
 lpips==0.1.4           # LPIPS metric — same package + vgg backbone as the other repos
-
-# Local CUDA extensions (stock 3DGS rasterizer + kNN + fused SSIM).
-./submodules/diff-gaussian-rasterization
-./submodules/simple-knn
-./submodules/fused-ssim
