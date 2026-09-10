@@ -1,18 +1,38 @@
-torch==2.0.1
-torchvision==0.15.2
-torchaudio==2.0.2
-numpy<2
-tqdm
-wandb
-matplotlib
-slangtorch==1.3.7
-pyyaml
-mkl==2024.0
-Cython==0.29.36
-open3d==0.18.0
-pydicom
-tifffile
-pyvista
-opencv-python
+# Vol3DGS — Python dependencies (Python 3.12, CUDA 12.8).
+# Install:  pip install -r requirements.txt
+#
+# ADAPTED from the upstream pin (torch==2.0.1 / torchvision==0.15.2 / numpy<2):
+# torch 2.0.1 ships no sm_120 kernels and cannot run on an RTX 5060 (Blackwell);
+# torch >= 2.7 with the CUDA 12.8 wheels is required. numpy is kept <2 because
+# the codebase relies on NumPy 1.x APIs (as pinned upstream).
+# Dropped here (view-synthesis path only, all optional/guarded imports):
+# wandb (only for --use_wandb), pyyaml, mkl, Cython, open3d, pydicom, tifffile,
+# pyvista, torchaudio (absolute/tomography dependencies of the upstream env).
+#
+# ⚠️ Use a SEPARATE virtual environment — do NOT install into the Cloud-GS venv
+# or the official-3DGS venv: all three ship a package named
+# `diff_gaussian_rasterization` with mutually incompatible APIs.
+#
+# The Vol3DGS rasterizer (submodules/slang-gaussian-rasterization) is compiled
+# just-in-time by slangtorch — it needs no separate build step.
+
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch==2.11.0+cu128
+torchvision==0.26.0+cu128
+
+numpy==1.26.4          # upstream pins numpy<2 (NumPy 1.x APIs in the codebase)
+pillow==12.3.0
+opencv-python==4.13.0.92
+plyfile==1.1.3
+tqdm==4.67.3
+matplotlib==3.10.9
 tensorboard
-tensorboardX
+slangtorch==1.3.7      # JIT slang -> CUDA, used by the Vol3DGS rasterizer
+
+scipy==1.13.1          # required by lpips; NumPy-1.x-compatible line
+lpips==0.1.4           # LPIPS metric — same package + vgg backbone as the other repos
+
+# Local CUDA extensions (stock 3DGS rasterizer + kNN + fused SSIM).
+./submodules/diff-gaussian-rasterization
+./submodules/simple-knn
+./submodules/fused-ssim
