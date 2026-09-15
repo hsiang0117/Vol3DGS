@@ -1,5 +1,4 @@
 import os
-import uuid
 import torch
 from random import randint
 import matplotlib.pyplot as plt
@@ -10,7 +9,7 @@ import sys
 from scene import Scene
 from utils.general_utils import safe_state, density2alpha
 from utils.sh_utils import C0
-import uuid
+from utils.system_utils import build_timestamped_model_path
 from tqdm import tqdm
 from utils.image_utils import psnr
 from argparse import ArgumentParser, Namespace
@@ -177,11 +176,7 @@ def prepare_output_and_logger(args, use_wandb=False):
     if WANDB_FOUND and use_wandb:
         wandb.init(project="gaussian-splatting-volr", config=vars(args))    
     if not args.model_path:
-        if os.getenv('OAR_JOB_ID'):
-            unique_str=os.getenv('OAR_JOB_ID')
-        else:
-            unique_str = str(uuid.uuid4())
-        args.model_path = os.path.join("./output/", unique_str[0:10])
+        args.model_path = build_timestamped_model_path()
         
     # Set up output folder
     print("Output folder: {}".format(args.model_path))
@@ -292,12 +287,9 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
         # if tb_writer:
         #     tb_writer.flush()
 
-    if tb_writer:
-        tb_writer.add_histogram("scene/opacity_histogram", scene.gaussians.get_opacity, iteration)
-        if hasattr(scene.gaussians, "_opacity_volr"):
-            tb_writer.add_histogram("scene/opacity_volr_histogram", scene.gaussians.get_opacity_volr, iteration)
-        tb_writer.add_scalar('total_points', scene.gaussians.get_xyz.shape[0], iteration)
-        torch.cuda.empty_cache()
+    # NOTE: per-iteration histogram logging was removed here — it duplicated the
+    # %200 block above and cost ~60ms/iter (full CPU transfer of all opacities),
+    # leaving the GPU idle. The %200 block still logs the same quantities.
 
 if __name__ == "__main__":
     # Set up command line argument parser
@@ -320,7 +312,6 @@ if __name__ == "__main__":
     parser.add_argument("--max_points", type=int, default=7e6)
     parser.add_argument("--scene_extent_mult", type=float, default=1.0)
     parser.add_argument("--reparam_type", type=str, default="ours", choices=["ours", "ever", "None"])
-    parser.add_argument("--disable_random_suffix", action="store_false")
     parser.add_argument("--checkpoint_interval", type=int, default=-1)
     parser.add_argument("--use_wandb", action="store_true")
 
@@ -337,10 +328,6 @@ if __name__ == "__main__":
       import slang_gaussian_rasterization.api.inria_3dgs_volr as gaussian_renderer
       from scene import GaussianModelVolr as GaussianModel
 
-    # Generate a random UUID and take the first 6 characters
-    if args.disable_random_suffix:
-        random_suffix = str(uuid.uuid4())[:6]
-        args.model_path = f"{args.model_path}_{random_suffix}"
     print("Optimizing " + args.model_path)
 
     # Initialize system state (RNG)
